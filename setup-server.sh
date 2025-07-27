@@ -1,6 +1,6 @@
 #!/bin/bash
 
-set -e  # Exit immediately if a command fails
+set -e  # Exit on error
 
 echo "=== 🟢 Updating system and installing dependencies ==="
 sudo apt install -y nginx git curl build-essential
@@ -13,11 +13,13 @@ echo "=== 📦 Installing project dependencies ==="
 npm install
 npm run build
 
-echo "=== 🚀 Starting Next.js app on port 3000 ==="
+echo "=== 🚀 Running Next.js on port 3000 (HOST=0.0.0.0) ==="
 sudo npm install -g pm2
-pm2 start "npm start" --name my-app
+pm2 delete my-app || true
+pm2 start "HOST=0.0.0.0 PORT=3000 npm start" --name my-app
+pm2 save
 
-echo "=== 🌐 Configuring Nginx reverse proxy ==="
+echo "=== 🌐 Configuring Nginx reverse proxy (port 80 to 3000) ==="
 cat <<EOF | sudo tee /etc/nginx/sites-available/my-app
 server {
     listen 80;
@@ -34,11 +36,14 @@ server {
 }
 EOF
 
-echo "=== 🔗 Enabling Nginx configuration ==="
+# Remove default site if exists
+sudo rm -f /etc/nginx/sites-enabled/default
+
+# Enable new config
 sudo ln -sf /etc/nginx/sites-available/my-app /etc/nginx/sites-enabled/my-app
 sudo nginx -t && sudo systemctl reload nginx
 
-echo "=== 🔓 (Optional) Allowing firewall access for Nginx ==="
+echo "=== 🔓 Opening firewall for HTTP (port 80) ==="
 sudo ufw allow 'Nginx Full' || true
 
-echo "✅ Setup complete. Your Next.js app should be accessible via your EC2 public IP."
+echo "✅ Setup complete! Visit: http://<your-ec2-ip>"
