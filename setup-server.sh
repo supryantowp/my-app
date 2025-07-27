@@ -1,26 +1,27 @@
 #!/bin/bash
 
-set -e  # Exit on error
+set -e  # Stop on error
 
-echo "=== 🟢 Updating system and installing dependencies ==="
+echo "=== 🔧 Update system & install dependencies ==="
+sudo apt update && sudo apt upgrade -y
 sudo apt install -y nginx git curl build-essential
 
-echo "=== 🌐 Installing Node.js (LTS) ==="
+echo "=== 🧱 Install Node.js LTS ==="
 curl -fsSL https://deb.nodesource.com/setup_lts.x | sudo -E bash -
 sudo apt install -y nodejs
 
-echo "=== 📦 Installing project dependencies ==="
+echo "=== 📦 Install dependencies & build project ==="
 npm install
 npm run build
 
-echo "=== 🚀 Running Next.js on port 3000 (HOST=0.0.0.0) ==="
+echo "=== 🚀 Start Next.js on port 3000 (0.0.0.0) ==="
 sudo npm install -g pm2
 pm2 delete my-app || true
 pm2 start "HOST=0.0.0.0 PORT=3000 npm start" --name my-app
 pm2 save
 
-echo "=== 🌐 Configuring Nginx reverse proxy (port 80 to 3000) ==="
-cat <<EOF | sudo tee /etc/nginx/sites-available/my-app
+echo "=== 🌐 Configure Nginx as reverse proxy (port 80 → 3000) ==="
+sudo tee /etc/nginx/sites-available/my-app >/dev/null <<EOF
 server {
     listen 80;
     server_name _;
@@ -36,14 +37,11 @@ server {
 }
 EOF
 
-# Remove default site if exists
 sudo rm -f /etc/nginx/sites-enabled/default
-
-# Enable new config
 sudo ln -sf /etc/nginx/sites-available/my-app /etc/nginx/sites-enabled/my-app
 sudo nginx -t && sudo systemctl reload nginx
 
-echo "=== 🔓 Opening firewall for HTTP (port 80) ==="
+echo "=== 🔓 Allow Nginx traffic (HTTP) ==="
 sudo ufw allow 'Nginx Full' || true
 
-echo "✅ Setup complete! Visit: http://<your-ec2-ip>"
+echo "=== ✅ Deployment complete! App is now accessible at http://<EC2_IP> or http://<your-elb>.elb.amazonaws.com ==="
